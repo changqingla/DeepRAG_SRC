@@ -1,0 +1,89 @@
+# DeepRAG 文档处理核心依赖
+# 基于代码库中的导入语句分析
+
+# 文档处理和解析
+tika>=2.6.0                    # Apache Tika，用于多种文档格式解析
+python-docx>=0.8.11           # Word 文档处理
+openpyxl>=3.1.0               # Excel 文件处理
+PyPDF2>=3.0.0                 # PDF 文档处理
+pypdf>=3.0.0                  # 另一个 PDF 处理库
+pdfplumber>=0.9.0             # PDF 文本和表格提取
+markdown>=3.4.0               # Markdown 文件处理
+python-pptx>=0.6.21           # PowerPoint 文档处理
+
+# 图像处理和计算机视觉
+Pillow>=9.5.0                 # Python 图像处理库
+numpy>=1.24.0                 # 数值计算基础库
+opencv-python>=4.8.0          # 计算机视觉库 (deepdoc 需要)
+
+# 数据处理
+pandas>=2.0.0                 # 数据分析和处理
+python-dateutil>=2.8.2        # 日期时间处理工具
+
+# 中文文本处理
+hanziconv>=0.3.2              # 繁简体中文转换
+xpinyin>=0.7.6                # 中文转拼音
+
+# 自然语言处理
+nltk>=3.8.1                   # 自然语言工具包
+datrie>=0.8.2                 # 字典树数据结构
+
+# 分词工具
+tiktoken>=0.5.0               # OpenAI 的分词器
+
+# 字符串枚举支持 (Python < 3.11)
+strenum>=0.4.0                # 字符串枚举类型
+
+# HTTP 请求
+requests>=2.31.0              # HTTP 请求库
+
+# 异步处理
+trio>=0.22.0                  # 现代异步 I/O 库
+
+# 机器学习和深度学习 (deepdoc 需要)
+xgboost>=1.7.0                # 梯度提升框架
+onnxruntime>=1.15.0           # ONNX 运行时
+huggingface-hub>=0.16.0       # Hugging Face 模型下载
+
+# HTML 处理 (deepdoc 需要)
+readability>=0.3.1            # HTML 内容提取
+html-text>=0.5.2              # HTML 转文本
+chardet>=5.0.0                # 字符编码检测
+
+# 类型检查和验证 (deepdoc 需要)
+beartype>=0.15.0              # 运行时类型检查
+
+# JSON 处理 (deepdoc 需要)
+demjson3>=3.0.6               # 容错 JSON 解析器
+shapely==2.1.1
+pyclipper==1.3.0.post6
+
+# 其它
+roman_numbers==1.0.2
+word2number==1.1
+cn2an
+
+# 类型提示 (旧版本 Python)
+typing-extensions>=4.5.0      # 类型提示扩展
+
+# 可选依赖 (根据需要取消注释)
+torch>=2.0.0                  # PyTorch 深度学习框架 (deepdoc 可能需要)
+# transformers>=4.30.0         # Hugging Face Transformers
+# scikit-learn>=1.3.0          # 机器学习库
+# flask>=2.3.0                 # Web 框架
+# fastapi>=0.100.0             # 现代 Web API 框架
+# uvicorn>=0.23.0              # ASGI 服务器
+
+
+
+# 安装说明：
+# 1. 安装 Python 3.8 或更高版本
+# 2. 运行：pip install -r requirements.txt
+# 3. NLTK 需要下载额外数据：
+#    python -c "import nltk; nltk.download('punkt_tab'); nltk.download('wordnet')"
+
+
+# 可能需要的系统依赖：
+# - tika 需要：Java 运行环境 (JRE)
+# - 图像处理需要：Pillow 的系统库
+# - PDF 处理需要：poppler-utils (某些 PDF 操作)
