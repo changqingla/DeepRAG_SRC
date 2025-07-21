@@ -22,7 +22,7 @@ import inspect
 # ChatModel = globals().get("ChatModel", {})
 # CvModel = globals().get("CvModel", {})
 EmbeddingModel = globals().get("EmbeddingModel", {})
-# RerankModel = globals().get("RerankModel", {})
+RerankModel = globals().get("RerankModel", {})
 # Seq2txtModel = globals().get("Seq2txtModel", {})
 # TTSModel = globals().get("TTSModel", {})
 
@@ -30,7 +30,7 @@ MODULE_MAPPING = {
     # "chat_model": ChatModel,
     # "cv_model": CvModel,
     "embedding_model": EmbeddingModel,
-    # "rerank_model": RerankModel,
+    "rerank_model": RerankModel,
     # "sequence2txt_model": Seq2txtModel,
     # "tts_model": TTSModel,
 }
@@ -61,7 +61,7 @@ __all__ = [
     # "ChatModel",
     # "CvModel",
     "EmbeddingModel",
-    # "RerankModel",
+    "RerankModel",
     # "Seq2txtModel",
     # "TTSModel",
 ]

@@ -3,10 +3,9 @@
 """
 独立的Elasticsearch连接模块
 
-本模块提供基于RAGFlow原有逻辑的独立Elasticsearch连接实现，
-不依赖外部模块，完全复用RAGFlow的存储算法。
+本模块提供独立Elasticsearch连接实现
 
-作者: RAGFlow开发团队
+作者: Hu Tao
 许可证: Apache 2.0
 """
 
@@ -19,10 +18,14 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from elasticsearch import Elasticsearch, NotFoundError
-from elasticsearch_dsl import Index
+try:
+    from elasticsearch_dsl import Index
+except ImportError:
+    # 如果 elasticsearch_dsl 不可用，使用基础的 elasticsearch 客户端
+    Index = None
 from elastic_transport import ConnectionTimeout
 
-# RAGFlow中的常量配置
+# deeprag中的常量配置
 ATTEMPT_TIME = 2  # 重试次数
 
 logger = logging.getLogger('embed_store.es_connection')
@@ -30,10 +33,10 @@ logger = logging.getLogger('embed_store.es_connection')
 
 class IndependentESConnection:
     """
-    基于RAGFlow ESConnection逻辑的独立Elasticsearch连接类
+    基于deeprag ESConnection逻辑的独立Elasticsearch连接类
 
-    本类仅实现分块存储所需的核心方法，不依赖RAGFlow的settings或其他模块。
-    完全复用RAGFlow的存储算法逻辑，包括索引创建、批量插入、错误处理等。
+    本类仅实现分块存储所需的核心方法，不依赖deeprag的settings或其他模块。
+    完全复用deeprag的存储算法逻辑，包括索引创建、批量插入、错误处理等。
     """
 
     def __init__(self, es_config: Dict[str, Any] = None):
@@ -43,7 +46,7 @@ class IndependentESConnection:
         Args:
             es_config: Elasticsearch配置字典，包含hosts、用户名、密码等信息
         """
-        # 默认ES配置（基于RAGFlow的settings配置）
+        # 默认ES配置（基于deeprag的settings配置）
         self.default_config = {
             "hosts": "http://localhost:9200",  # ES服务器地址
             "username": "",                    # 用户名（可选）
@@ -51,18 +54,9 @@ class IndependentESConnection:
             "timeout": 600                     # 连接超时时间（秒）
         }
 
-        # 使用提供的配置或默认配置
-        if es_config:
-            self.es_config = {**self.default_config, **es_config}
-        else:
-            # 尝试使用RAGFlow的配置（如果可用）
-            try:
-                from rag import settings
-                self.es_config = settings.ES
-                logger.info("使用RAGFlow的ES配置")
-            except ImportError:
-                self.es_config = self.default_config
-                logger.info("使用默认ES配置")
+        # 使用提供的配置
+        self.es_config = {**self.default_config, **es_config}
+
 
         # 初始化Elasticsearch客户端
         self._init_elasticsearch()
@@ -71,10 +65,10 @@ class IndependentESConnection:
         self._load_mapping()
     
     def _init_elasticsearch(self):
-        """初始化Elasticsearch客户端（基于RAGFlow的逻辑）"""
+        """初始化Elasticsearch客户端（基于deeprag的逻辑）"""
         logger.info(f"正在连接Elasticsearch: {self.es_config['hosts']}")
 
-        # 按照RAGFlow的重试逻辑进行连接
+        # 按照deeprag的重试逻辑进行连接
         for attempt in range(ATTEMPT_TIME):
             try:
                 # 解析主机地址
@@ -107,26 +101,89 @@ class IndependentESConnection:
                 time.sleep(2)  # 重试前等待2秒
     
     def _load_mapping(self):
-        """加载mapping配置（基于RAGFlow的逻辑）"""
+        """加载mapping配置（基于deeprag的逻辑）"""
         try:
-            # 尝试加载RAGFlow的mapping文件
-            from api.utils.file_utils import get_project_base_directory
+            # 尝试加载deeprag的mapping文件
+            from rag.utils import get_project_base_directory
             mapping_file = Path(get_project_base_directory()) / "conf" / "mapping.json"
 
             if mapping_file.exists():
                 with open(mapping_file, "r") as f:
                     self.mapping = json.load(f)
-                logger.info("已加载RAGFlow的mapping配置")
+                logger.info("已加载deeprag的mapping配置")
                 return
         except ImportError:
             pass
 
-        # 如果RAGFlow的mapping不可用，使用默认mapping
-        self.mapping = self._get_default_mapping()
-        logger.info("使用默认mapping配置")
+        # 如果deeprag的mapping不可用，使用默认mapping
+        # 检测是否支持 IK 分词器
+        use_ik = self._check_ik_plugin_available()
+        self.mapping = self._get_default_mapping(use_ik=use_ik)
+        if use_ik:
+            logger.info("使用默认mapping配置（IK分词器）")
+        else:
+            logger.info("使用默认mapping配置（标准分词器）")
+
+    def _check_ik_plugin_available(self) -> bool:
+        """
+        检测 Elasticsearch 是否安装了 IK 分词器插件
+
+        Returns:
+            bool: 如果 IK 插件可用返回 True，否则返回 False
+        """
+        try:
+            # 尝试获取节点插件信息
+            nodes_info = self.es.nodes.info(node_id="_all", metric="plugins")
+
+            # 检查是否有任何节点安装了 IK 插件
+            for node_id, node_info in nodes_info.get("nodes", {}).items():
+                plugins = node_info.get("plugins", [])
+                for plugin in plugins:
+                    if plugin.get("name") == "analysis-ik":
+                        logger.info(f"检测到 IK 分词器插件在节点 {node_id}")
+                        return True
+
+            logger.warning("未检测到 IK 分词器插件，将使用标准分词器")
+            return False
+
+        except Exception as e:
+            logger.warning(f"检测 IK 插件时出错: {e}，将使用标准分词器")
+            return False
     
-    def _get_default_mapping(self) -> Dict[str, Any]:
-        """获取默认mapping配置（基于RAGFlow的mapping.json）"""
+    def _get_default_mapping(self, use_ik: bool = True) -> Dict[str, Any]:
+        """获取默认mapping配置（基于deeprag的mapping.json）"""
+
+        if use_ik:
+            # 使用 IK 分词器的配置
+            analysis_config = {
+                "analyzer": {
+                    "my_ik": {                      # 中文分词器
+                        "tokenizer": "ik_max_word",
+                        "filter": ["lowercase"]
+                    },
+                    "my_ws": {                      # 空格分词器
+                        "tokenizer": "whitespace",
+                        "filter": ["lowercase"]
+                    }
+                }
+            }
+            text_analyzer = "my_ik"
+        else:
+            # 使用标准分词器的配置（不依赖 IK 插件）
+            analysis_config = {
+                "analyzer": {
+                    "my_standard": {                # 标准分词器
+                        "tokenizer": "standard",
+                        "filter": ["lowercase"]
+                    },
+                    "my_ws": {                      # 空格分词器
+                        "tokenizer": "whitespace",
+                        "filter": ["lowercase"]
+                    }
+                }
+            }
+            text_analyzer = "my_standard"
+
         return {
             "settings": {
                 "index": {
@@ -135,18 +192,7 @@ class IndependentESConnection:
                     "max_result_window": 2000000,       # 最大搜索结果窗口
                     "highlight.max_analyzed_offset": 2000000  # 高亮分析偏移量
                 },
-                "analysis": {
-                    "analyzer": {
-                        "my_ik": {                      # 中文分词器
-                            "tokenizer": "ik_max_word",
-                            "filter": ["lowercase"]
-                        },
-                        "my_ws": {                      # 空格分词器
-                            "tokenizer": "whitespace",
-                            "filter": ["lowercase"]
-                        }
-                    }
-                }
+                "analysis": analysis_config
             },
             "mappings": {
                 "dynamic_templates": [
@@ -167,8 +213,8 @@ class IndependentESConnection:
                     "kb_id": {"type": "keyword"},                # 知识库ID
                     "content_with_weight": {                     # 分块内容
                         "type": "text",
-                        "analyzer": "my_ik",                     # 使用中文分词
-                        "search_analyzer": "my_ik"
+                        "analyzer": text_analyzer,               # 使用配置的分词器
+                        "search_analyzer": text_analyzer
                     },
                     "content_ltks": {                            # 基础分词结果
                         "type": "text",
@@ -183,8 +229,8 @@ class IndependentESConnection:
                     "docnm_kwd": {"type": "keyword"},           # 文档名称
                     "title_tks": {                              # 标题分词
                         "type": "text",
-                        "analyzer": "my_ik",
-                        "search_analyzer": "my_ik"
+                        "analyzer": text_analyzer,               # 使用配置的分词器
+                        "search_analyzer": text_analyzer
                     },
                     "title_sm_tks": {                           # 标题细粒度分词
                         "type": "text",
@@ -195,7 +241,10 @@ class IndependentESConnection:
                     "position_int": {"type": "integer"},        # 位置坐标
                     "top_int": {"type": "integer"},             # 顶部位置
                     "available_int": {"type": "integer"},       # 可用状态
-                    "create_time": {"type": "date"},            # 创建时间
+                    "create_time": {                            # 创建时间
+                        "type": "date",
+                        "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"
+                    },
                     "create_timestamp_flt": {"type": "float"}   # 创建时间戳
                 }
             }
@@ -203,7 +252,7 @@ class IndependentESConnection:
     
     def createIdx(self, index_name: str, kb_id: str, vector_size: int) -> bool:
         """
-        创建索引（基于RAGFlow的createIdx逻辑）
+        创建索引（基于deeprag的createIdx逻辑）
 
         Args:
             index_name: 索引名称
@@ -247,14 +296,14 @@ class IndependentESConnection:
     
     def deleteIdx(self, index_name: str, kb_id: str = ""):
         """
-        删除索引（基于RAGFlow的deleteIdx逻辑）
+        删除索引（基于deeprag的deleteIdx逻辑）
 
         Args:
             index_name: 索引名称
             kb_id: 知识库ID（在ES中不使用）
         """
         if len(kb_id) > 0:
-            # 在RAGFlow中，索引在多个知识库间共享，所以不删除
+            # 在deeprag中，索引在多个知识库间共享，所以不删除
             logger.info(f"跳过索引删除 {index_name}（提供了kb_id）")
             return
 
@@ -268,7 +317,7 @@ class IndependentESConnection:
     
     def indexExist(self, index_name: str, kb_id: str = "") -> bool:
         """
-        检查索引是否存在（基于RAGFlow的indexExist逻辑）
+        检查索引是否存在（基于deeprag的indexExist逻辑）
 
         Args:
             index_name: 索引名称
@@ -277,12 +326,11 @@ class IndependentESConnection:
         Returns:
             True表示索引存在
         """
-        s = Index(index_name, self.es)
-
-        # 按照RAGFlow的重试逻辑检查索引存在性
+        # 按照deeprag的重试逻辑检查索引存在性
         for attempt in range(ATTEMPT_TIME):
             try:
-                return s.exists()
+                # 使用基础的 elasticsearch 客户端检查索引
+                return self.es.indices.exists(index=index_name)
             except Exception as e:
                 logger.warning(f"索引存在性检查尝试 {attempt + 1} 失败: {e}")
                 # 如果是超时或冲突错误，继续重试
@@ -294,7 +342,7 @@ class IndependentESConnection:
     
     def insert(self, documents: List[Dict[str, Any]], index_name: str, kb_id: str = "") -> List[str]:
         """
-        插入文档（基于RAGFlow的insert逻辑）
+        插入文档（基于deeprag的insert逻辑）
 
         Args:
             documents: 要插入的文档列表
@@ -304,7 +352,7 @@ class IndependentESConnection:
         Returns:
             错误消息列表（如果成功则为空列表）
         """
-        # 准备批量操作（与RAGFlow相同的逻辑）
+        # 准备批量操作（与deeprag相同的逻辑）
         operations = []
         for doc in documents:
             # 确保文档格式正确
@@ -318,7 +366,7 @@ class IndependentESConnection:
             operations.append({"index": {"_index": index_name, "_id": meta_id}})
             operations.append(doc_copy)
 
-        # 执行批量插入（按照RAGFlow的重试逻辑）
+        # 执行批量插入（按照deeprag的重试逻辑）
         for attempt in range(ATTEMPT_TIME):
             try:
                 result = self.es.bulk(
@@ -328,7 +376,7 @@ class IndependentESConnection:
                     timeout="60s"           # 60秒超时
                 )
 
-                # 检查错误（与RAGFlow相同的逻辑）
+                # 检查错误（与deeprag相同的逻辑）
                 if re.search(r"False", str(result["errors"]), re.IGNORECASE):
                     return []  # 没有错误
 

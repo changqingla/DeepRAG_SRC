@@ -4,12 +4,11 @@
 简化的向量存储命令行工具
 
 本工具提供简单的命令行界面，用于将已向量化的分块
-直接存储到本地Elasticsearch，无需租户系统。
 
 用法:
     python simple_store.py embedded_chunks.json [选项]
 
-作者: RAGFlow开发团队
+作者: Hu Tao
 许可证: Apache 2.0
 """
 
@@ -69,8 +68,8 @@ def parse_arguments():
     # 存储配置
     parser.add_argument(
         '--index', '-i',
-        default='ragflow_vectors',
-        help='ES索引名称 (默认: ragflow_vectors)'
+        default='deeprag_vectors',
+        help='ES索引名称 (默认: deeprag_vectors)'
     )
     
     parser.add_argument(

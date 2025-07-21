@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 from dataclasses import dataclass, asdict
 
-from .chunk_embedder import EmbeddingConfig
+from chunk_embedder import EmbeddingConfig
 
 
 @dataclass

@@ -92,7 +92,15 @@ cohere>=4.0.0                 # Cohere API
 replicate>=0.15.0             # Replicate API
 qianfan>=0.3.0                # 百度千帆 API
 voyageai>=0.2.0               # Voyage AI API
-
+elasticsearch==8.15.1
+elasticsearch_dsl==8.18.0
+elastic_transport
+datrie
+hanziconv
+roman_numbers
+word2number
+cn2an
+cohere
 # 安装说明：
 # 1. 安装 Python 3.8 或更高版本
 # 2. 运行：pip install -r requirements.txt

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RAGFlow分块存储模块
+deeprag分块存储模块
 
 本模块提供将已向量化的分块存储到Elasticsearch的功能，
-使用RAGFlow原有的存储逻辑，但不依赖租户系统。
 
-作者: RAGFlow开发团队
+作者: Hu Tao
 许可证: Apache 2.0
 """
 
@@ -22,12 +21,12 @@ from datetime import datetime
 import xxhash
 from timeit import default_timer as timer
 
-# 添加RAGFlow根目录到路径
+# 添加deeprag根目录到路径
 current_dir = Path(__file__).parent.absolute()
-ragflow_root = current_dir.parent
-sys.path.insert(0, str(ragflow_root))
+deeprag_root = current_dir.parent
+sys.path.insert(0, str(deeprag_root))
 
-# 导入RAGFlow组件
+# 导入deeprag组件
 from rag.nlp import rag_tokenizer
 from rag.utils import num_tokens_from_string
 
@@ -39,7 +38,7 @@ class SimpleStoreConfig:
     """简化的存储配置类（无租户系统）"""
 
     def __init__(self,
-                 index_name: str = "ragflow_vectors",
+                 index_name: str = "deeprag_vectors",
                  es_config: Dict[str, Any] = None,
                  batch_size: int = 8,
                  auto_create_index: bool = True):
@@ -47,7 +46,7 @@ class SimpleStoreConfig:
         初始化简化存储配置
 
         Args:
-            index_name: Elasticsearch索引名称（默认: ragflow_vectors）
+            index_name: Elasticsearch索引名称（默认: deeprag_vectors）
             es_config: Elasticsearch配置字典（默认连接localhost:9200）
             batch_size: 批量操作的批次大小
             auto_create_index: 是否自动创建索引
@@ -73,10 +72,10 @@ class SimpleStoreConfig:
 
 class SimpleVectorStore:
     """
-    简化的向量存储器（基于RAGFlow算法，无租户系统）
+    简化的向量存储器（基于deeprag算法，无租户系统）
 
     本类提供将已向量化的分块直接存储到Elasticsearch的功能，
-    使用RAGFlow原有的存储算法，但简化了层级结构。
+    使用deeprag原有的存储算法，但简化了层级结构。
     """
 
     def __init__(self, config: SimpleStoreConfig):
@@ -102,7 +101,7 @@ class SimpleVectorStore:
 
     def _prepare_chunk_for_storage(self, chunk: Dict[str, Any], chunk_index: int = 0) -> Dict[str, Any]:
         """
-        简化的分块数据准备（基于RAGFlow逻辑）
+        简化的分块数据准备（基于deeprag逻辑）
 
         Args:
             chunk: 原始分块数据
@@ -114,17 +113,17 @@ class SimpleVectorStore:
         # 创建副本以避免修改原始数据
         prepared_chunk = copy.deepcopy(chunk)
 
-        # 使用RAGFlow逻辑生成唯一ID（简化版）
+        # 使用deeprag逻辑生成唯一ID（简化版）
         content = chunk.get("content_with_weight", "")
         chunk_id = xxhash.xxh64((content + str(chunk_index) + str(datetime.now().timestamp())).encode("utf-8")).hexdigest()
 
-        # 简化的必需字段（保持RAGFlow兼容性）
+        # 简化的必需字段（保持deeprag兼容性）
         prepared_chunk["id"] = chunk_id
         prepared_chunk["doc_id"] = self.config.doc_id
         prepared_chunk["create_time"] = str(datetime.now()).replace("T", " ")[:19]
         prepared_chunk["create_timestamp_flt"] = datetime.now().timestamp()
 
-        # 确保内容分词（与RAGFlow相同）
+        # 确保内容分词（与deeprag相同）
         if "content_ltks" not in prepared_chunk and content:
             prepared_chunk["content_ltks"] = rag_tokenizer.tokenize(content)
 
@@ -154,7 +153,7 @@ class SimpleVectorStore:
                      chunks: List[Dict[str, Any]],
                      callback=None) -> Tuple[int, List[str]]:
         """
-        简化的向量存储方法（基于RAGFlow算法）
+        简化的向量存储方法（基于deeprag算法）
 
         Args:
             chunks: 要存储的已向量化分块列表
@@ -192,7 +191,7 @@ class SimpleVectorStore:
             prepared_chunk = self._prepare_chunk_for_storage(chunk, i)
             prepared_chunks.append(prepared_chunk)
 
-        # 批量存储分块（与RAGFlow相同的逻辑）
+        # 批量存储分块（与deeprag相同的逻辑）
         callback(0.3, "正在存储分块到Elasticsearch...")
         batch_size = self.config.batch_size
         error_messages = []
@@ -203,7 +202,7 @@ class SimpleVectorStore:
         for b in range(0, len(prepared_chunks), batch_size):
             batch_chunks = prepared_chunks[b:b + batch_size]
 
-            # 使用RAGFlow逻辑插入批次（简化版）
+            # 使用deeprag逻辑插入批次（简化版）
             batch_errors = self.es_conn.insert(
                 batch_chunks,
                 self.config.index_name,

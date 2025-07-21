@@ -1,1 +1,1 @@
-# RAGFlow Embedding Storage Module
+# DeepRAG Embedding Storage Module

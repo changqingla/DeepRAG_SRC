@@ -18,99 +18,10 @@ import os
 import re
 import tiktoken
 from pathlib import Path
-from enum import Enum, IntEnum
-from strenum import StrEnum
-
-
-# Enum definitions (replaces api.db enums)
-class StatusEnum(Enum):
-    VALID = "1"
-    INVALID = "0"
-
-
-class UserTenantRole(StrEnum):
-    OWNER = 'owner'
-    ADMIN = 'admin'
-    NORMAL = 'normal'
-    INVITE = 'invite'
-
-
-class TenantPermission(StrEnum):
-    ME = 'me'
-    TEAM = 'team'
-
-
-class SerializedType(IntEnum):
-    PICKLE = 1
-    JSON = 2
-
-
-class FileType(StrEnum):
-    PDF = 'pdf'
-    DOC = 'doc'
-    VISUAL = 'visual'
-    AURAL = 'aural'
-    VIRTUAL = 'virtual'
-    FOLDER = 'folder'
-    OTHER = "other"
-
-
-class LLMType(StrEnum):
-    CHAT = 'chat'
-    EMBEDDING = 'embedding'
-    SPEECH2TEXT = 'speech2text'
-    IMAGE2TEXT = 'image2text'
-    RERANK = 'rerank'
-    TTS = 'tts'
-
-
-class ChatStyle(StrEnum):
-    CREATIVE = 'Creative'
-    PRECISE = 'Precise'
-    EVENLY = 'Evenly'
-    CUSTOM = 'Custom'
-
-
-class TaskStatus(StrEnum):
-    UNSTART = "0"
-    RUNNING = "1"
-    CANCEL = "2"
-    DONE = "3"
-    FAIL = "4"
-
-
-class ParserType(StrEnum):
-    PRESENTATION = "presentation"
-    LAWS = "laws"
-    MANUAL = "manual"
-    PAPER = "paper"
-    BOOK = "book"
-    QA = "qa"
-    TABLE = "table"
-    NAIVE = "naive"
-    ONE = "one"
-    EMAIL = "email"
-    KG = "knowledge_graph"
-    TAG = "tag"
-
-
-class FileSource(StrEnum):
-    LOCAL = ""
-    KNOWLEDGEBASE = "knowledgebase"
-    S3 = "s3"
-
-
-class CanvasType(StrEnum):
-    ChatBot = "chatbot"
-    DocBot = "docbot"
-
-
-# Constants
-KNOWLEDGEBASE_FOLDER_NAME = ".knowledgebase"
 
 
 def get_project_base_directory():
-    """Get project base directory (replaces api.utils.file_utils.get_project_base_directory)"""
+    """Get project base directory"""
     return Path(__file__).parent.parent.parent.absolute()
 
 def singleton(cls, *args, **kw):
@@ -201,3 +112,69 @@ def log_exception(e, *args):
         else:
             logging.error(str(a))
     raise e
+
+def conf_realpath(conf_name):
+    conf_path = f"conf/{conf_name}"
+    return os.path.join(file_utils.get_project_base_directory(), conf_path)
+
+
+# def read_config(conf_name=SERVICE_CONF):
+#     local_config = {}
+#     local_path = conf_realpath(f'local.{conf_name}')
+
+#     # load local config file
+#     if os.path.exists(local_path):
+#         local_config = file_utils.load_yaml_conf(local_path)
+#         if not isinstance(local_config, dict):
+#             raise ValueError(f'Invalid config file: "{local_path}".')
+
+#     global_config_path = conf_realpath(conf_name)
+#     global_config = file_utils.load_yaml_conf(global_config_path)
+
+#     if not isinstance(global_config, dict):
+#         raise ValueError(f'Invalid config file: "{global_config_path}".')
+
+#     global_config.update(local_config)
+#     return global_config
+
+# CONFIGS = read_config()
+
+# def get_base_config(key, default=None):
+#     if key is None:
+#         return None
+#     if default is None:
+#         default = os.environ.get(key.upper())
+#     return CONFIGS.get(key, default)
+
+# def decrypt_database_config(
+#         database=None, passwd_key="password", name="database"):
+#     if not database:
+#         database = get_base_config(name, {})
+
+#     database[passwd_key] = decrypt_database_password(database[passwd_key])
+#     return database
+
+# def decrypt_database_password(password):
+#     encrypt_password = get_base_config("encrypt_password", False)
+#     encrypt_module = get_base_config("encrypt_module", False)
+#     private_key = get_base_config("private_key", None)
+
+#     if not password or not encrypt_password:
+#         return password
+
+#     if not private_key:
+#         raise ValueError("No private key")
+
+#     module_fun = encrypt_module.split("#")
+#     pwdecrypt_fun = getattr(
+#         importlib.import_module(
+#             module_fun[0]),
+#         module_fun[1])
+
+#     return pwdecrypt_fun(private_key, password)
+
+def traversal_files(base):
+    for root, ds, fs in os.walk(base):
+        for f in fs:
+            fullname = os.path.join(root, f)
+            yield fullname

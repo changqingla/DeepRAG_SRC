@@ -106,7 +106,7 @@ embedder = ChunkEmbedder(localai_config)
 
 ```bash
 # 使用 VLLM 模型
-python embed_cli.py chunks.json --model-factory VLLM --model-name bge-m3 --model-base-url http://localhost:8002/v1
+python embed_cli.py chunks.json --model-factory VLLM --model-name bge-m3 --model-base-url http://10.0.1.4:8002/v1
 
 # 使用 LocalAI 模型
 python embed_cli.py chunks.json --model-factory LocalAI --model-name bge-m3 --model-base-url http://localhost:8080/v1

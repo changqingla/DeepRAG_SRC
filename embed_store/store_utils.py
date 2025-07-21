@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RAGFlow存储工具模块
+deeprag存储工具模块
 
-本模块提供用于将已向量化分块存储到Elasticsearch的
-工具函数和辅助类。
+本模块提供用于将已向量化分块存储到Elasticsearch的工具函数和辅助类。
 
-作者: RAGFlow开发团队
+作者: Hu Tao
 许可证: Apache 2.0
 """
 
@@ -56,7 +55,7 @@ class SimpleConfigManager:
 
     @classmethod
     def create_simple_config(cls,
-                           index_name: str = "ragflow_vectors",
+                           index_name: str = "deeprag_vectors",
                            **kwargs) -> SimpleStoreConfig:
         """
         创建简化存储配置
@@ -73,7 +72,7 @@ class SimpleConfigManager:
     @classmethod
     def create_with_es_host(cls,
                           es_host: str,
-                          index_name: str = "ragflow_vectors",
+                          index_name: str = "deeprag_vectors",
                           **kwargs) -> SimpleStoreConfig:
         """
         创建带自定义ES地址的配置
@@ -351,7 +350,7 @@ class StorageExporter:
                 "q_*_vec": "dense_vector (cosine similarity)"
             },
             "vector_dimensions": [512, 768, 1024, 1536],
-            "note": "Actual mapping may vary based on RAGFlow configuration"
+            "note": "Actual mapping may vary based on deeprag configuration"
         }
         
         with open(output_path, 'w', encoding='utf-8') as f:
