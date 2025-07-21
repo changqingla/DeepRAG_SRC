@@ -40,9 +40,9 @@ LOCK_KEY_pdfplumber = "global_shared_lock_pdfplumber"
 if LOCK_KEY_pdfplumber not in sys.modules:
     sys.modules[LOCK_KEY_pdfplumber] = threading.Lock()
 
-LIGHTEN = int(os.environ.get("LIGHTEN", "0"))
+LIGHTEN = int(os.environ.get("LIGHTEN", "1"))
 
-class RAGFlowPdfParser:
+class DeepRAGPdfParser:
     def __init__(self):
         """
         If you have trouble downloading HuggingFace models, -_^ this might help!!
@@ -69,7 +69,7 @@ class RAGFlowPdfParser:
                 if torch.cuda.is_available():
                     self.updown_cnt_mdl.set_param({"device": "cuda"})
             except Exception:
-                logging.exception("RAGFlowPdfParser __init__")
+                logging.exception("DeepRAGPdfParser __init__")
         try:
             model_dir = os.path.join(
                 get_project_base_directory(),
@@ -990,7 +990,7 @@ class RAGFlowPdfParser:
                     
                 self.total_page = len(self.pdf.pages)
         except Exception:
-            logging.exception("RAGFlowPdfParser __images__")
+            logging.exception("DeepRAGPdfParser __images__")
         logging.info(f"__images__ dedupe_chars cost {timer() - start}s")
 
         self.outlines = []

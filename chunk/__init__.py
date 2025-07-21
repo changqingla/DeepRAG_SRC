@@ -1,1 +1,1 @@
-# RAGFlow Document Chunking Module
+# DeepRAG Document Chunking Module

@@ -359,7 +359,9 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
 
     elif re.search(r"\.(md|markdown)$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")
-        sections, tables = Markdown(int(parser_config.get("chunk_token_num", 128)))(filename, binary)
+        chunk_token_num = int(parser_config.get("chunk_token_num", 128))
+        logging.info(f"Markdown 解析器使用 chunk_token_num: {chunk_token_num}")
+        sections, tables = Markdown(chunk_token_num)(filename, binary)
         res = tokenize_table(tables, doc, is_english)
         callback(0.8, "Finish parsing.")
 

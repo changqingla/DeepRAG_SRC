@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RAGFlow Document Chunker Command Line Interface
+DeepRAG 文档分块命令行界面
 
-This script provides a command-line interface for the RAGFlow-based document
-chunker, allowing users to process documents from the command line with
-various options and configurations.
+本脚本为基于 DeepRAG 的文档分块器提供命令行界面，
+允许用户通过命令行处理文档，支持各种选项和配置。
 
-Usage:
-    python chunk_cli.py input_file [options]
-    python chunk_cli.py --batch input_directory [options]
+用法:
+    python chunk_cli.py input_file [选项]
+    python chunk_cli.py --batch input_directory [选项]
 
-Author: RAGFlow Dev Team
-License: Apache 2.0
+作者: HU TAO
+许可证: Apache 2.0
 """
 
 import argparse
@@ -23,7 +22,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from timeit import default_timer as timer
 
-# Import our modules
+# 导入我们的模块
 from document_chunker import DocumentChunker
 from chunker_utils import (
     ChunkingConfig, FileTypeDetector, ChunkAnalyzer, 
@@ -32,7 +31,7 @@ from chunker_utils import (
 
 
 def setup_logging(verbose: bool = False):
-    """Setup logging configuration"""
+    """设置日志配置"""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -42,136 +41,136 @@ def setup_logging(verbose: bool = False):
 
 
 def parse_arguments():
-    """Parse command line arguments"""
+    """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="RAGFlow Document Chunker - Process documents using RAGFlow's deep understanding algorithms",
+        description="DeepRAG 文档分块器 - 使用 DeepRAG 深度理解算法处理文档",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Chunk a single PDF using paper parser
+示例:
+  # 使用论文解析器分块单个 PDF
   python chunk_cli.py document.pdf --parser paper --output chunks.json
-  
-  # Batch process all PDFs in a directory
+
+  # 批量处理目录中的所有 PDF
   python chunk_cli.py --batch ./documents --parser book --format txt
-  
-  # Use custom chunking parameters
+
+  # 使用自定义分块参数
   python chunk_cli.py document.docx --tokens 512 --language English
-  
-  # Get parser recommendations for a file
+
+  # 获取文件的解析器推荐
   python chunk_cli.py document.pdf --recommend-parser
         """
     )
     
-    # Input options
+    # 输入选项
     input_group = parser.add_mutually_exclusive_group(required=True)
     input_group.add_argument(
-        'input_file', 
+        'input_file',
         nargs='?',
-        help='Input document file to process'
+        help='要处理的输入文档文件'
     )
     input_group.add_argument(
-        '--batch', 
+        '--batch',
         metavar='DIRECTORY',
-        help='Process all supported files in the specified directory'
+        help='处理指定目录中的所有支持文件'
     )
-    
-    # Parser options
+
+    # 解析器选项
     parser.add_argument(
-        '--parser', 
+        '--parser',
         choices=DocumentChunker.get_supported_parsers(),
         default='general',
-        help='Parser type to use (default: general)'
+        help='要使用的解析器类型 (默认: general)'
     )
-    
+
     parser.add_argument(
         '--recommend-parser',
         action='store_true',
-        help='Show recommended parsers for the input file and exit'
+        help='显示输入文件的推荐解析器并退出'
     )
     
-    # Chunking parameters
+    # 分块参数
     parser.add_argument(
         '--tokens',
         type=int,
         default=256,
-        help='Maximum tokens per chunk (default: 256)'
+        help='每个分块的最大 token 数 (默认: 256)'
     )
-    
+
     parser.add_argument(
         '--delimiter',
         default="\n。；！？",
-        help='Text delimiters for chunking (default: "\\n。；！？")'
+        help='分块的文本分隔符 (默认: "\\n。；！？")'
     )
-    
+
     parser.add_argument(
         '--language',
         choices=['Chinese', 'English'],
         default='Chinese',
-        help='Document language (default: Chinese)'
+        help='文档语言 (默认: Chinese)'
     )
-    
+
     parser.add_argument(
         '--from-page',
         type=int,
         default=0,
-        help='Starting page number (default: 0)'
+        help='起始页码 (默认: 0)'
     )
-    
+
     parser.add_argument(
         '--to-page',
         type=int,
         default=100000,
-        help='Ending page number (default: 100000)'
+        help='结束页码 (默认: 100000)'
     )
-    
+
     parser.add_argument(
         '--zoomin',
         type=int,
         default=3,
-        help='Zoom factor for OCR (default: 3)'
+        help='OCR 缩放因子 (默认: 3)'
     )
     
-    # Output options
+    # 输出选项
     parser.add_argument(
         '--output', '-o',
-        help='Output file path (default: auto-generated based on input)'
+        help='输出文件路径 (默认: 根据输入自动生成)'
     )
-    
+
     parser.add_argument(
         '--format',
         choices=['json', 'txt', 'csv'],
         default='json',
-        help='Output format (default: json)'
+        help='输出格式 (默认: json)'
     )
-    
+
     parser.add_argument(
         '--stats',
         action='store_true',
-        help='Show detailed statistics about the chunks'
+        help='显示分块的详细统计信息'
     )
-    
+
     parser.add_argument(
         '--preview',
         action='store_true',
-        help='Show preview of generated chunks'
+        help='显示生成分块的预览'
     )
-    
-    # Configuration options
+
+    # 配置选项
     parser.add_argument(
         '--config',
-        help='Load configuration from JSON file'
+        help='从 JSON 文件加载配置'
     )
-    
+
     parser.add_argument(
         '--save-config',
-        help='Save current configuration to JSON file'
+        help='将当前配置保存到 JSON 文件'
     )
-    
-    # Other options
+
+    # 其他选项
     parser.add_argument(
         '--verbose', '-v',
         action='store_true',
-        help='Enable verbose logging'
+        help='启用详细日志记录'
     )
     
     return parser.parse_args()

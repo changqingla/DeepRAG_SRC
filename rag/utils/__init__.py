@@ -183,3 +183,21 @@ def num_tokens_from_string(string: str) -> int:
 def truncate(string: str, max_len: int) -> str:
     """Returns truncated text if the length of text exceed max_len."""
     return encoder.decode(encoder.encode(string)[:max_len])
+
+def get_home_cache_dir():
+    dir = os.path.join(os.path.expanduser('~'), ".deeprag")
+    try:
+        os.mkdir(dir)
+    except OSError:
+        pass
+    return dir
+
+def log_exception(e, *args):
+    logging.exception(e)
+    for a in args:
+        if hasattr(a, "text"):
+            logging.error(a.text)
+            raise Exception(a.text)
+        else:
+            logging.error(str(a))
+    raise e

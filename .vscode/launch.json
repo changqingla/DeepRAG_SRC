@@ -1,0 +1,137 @@
+{
+    // DeepRAG 项目调试配置
+    // 使用 IntelliSense 了解相关属性。
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python 调试程序: 当前文件",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "调试: API 服务器",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/api/chunk_server.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "--host", "0.0.0.0",
+                "--port", "8089",
+                "--workers", "1"
+            ]
+        },
+        {
+            "name": "调试: 文档分块器",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/chunk/document_chunker.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "调试: RAG 分词器",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/rag/nlp/rag_tokenizer.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "调试: 分块工具",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/chunk/chunker_utils.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "调试: 测试文件",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_chunker.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "--file", "test_document.pdf",
+                "--parser", "general",
+                "--chunk-size", "256"
+            ]
+        },
+        {
+            "name": "调试: FastAPI 应用 (Uvicorn)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "api.chunk_server:app",
+                "--host", "0.0.0.0",
+                "--port", "8089",
+                "--reload",
+                "--log-level", "debug"
+            ]
+        },
+        {
+            "name": "调试: Python 模块",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "${input:moduleName}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "附加到进程",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "moduleName",
+            "description": "输入要调试的模块名 (例如: rag.nlp.rag_tokenizer)",
+            "default": "rag.nlp.rag_tokenizer",
+            "type": "promptString"
+        }
+    ]
+}

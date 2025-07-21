@@ -14,14 +14,14 @@
 #  limitations under the License.
 #
 
-from .pdf_parser import RAGFlowPdfParser as PdfParser, PlainParser
-from .docx_parser import RAGFlowDocxParser as DocxParser
-from .excel_parser import RAGFlowExcelParser as ExcelParser
-from .ppt_parser import RAGFlowPptParser as PptParser
-from .html_parser import RAGFlowHtmlParser as HtmlParser
-from .json_parser import RAGFlowJsonParser as JsonParser
-from .markdown_parser import RAGFlowMarkdownParser as MarkdownParser
-from .txt_parser import RAGFlowTxtParser as TxtParser
+from .pdf_parser import DeepRAGPdfParser as PdfParser, PlainParser
+from .docx_parser import DeepRAGDocxParser as DocxParser
+from .excel_parser import DeepRAGExcelParser as ExcelParser
+from .ppt_parser import DeepRAGPptParser as PptParser
+from .html_parser import DeepRAGHtmlParser as HtmlParser
+from .json_parser import DeepRAGJsonParser as JsonParser
+from .markdown_parser import DeepRAGMarkdownParser as MarkdownParser
+from .txt_parser import DeepRAGTxtParser as TxtParser
 
 __all__ = [
     "PdfParser",

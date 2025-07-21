@@ -528,6 +528,7 @@ def hierarchical_merge(bull, sections, depth):
 
 
 def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
+    print(f"🚀 naive_merge 被调用，chunk_token_num={chunk_token_num}, sections数量={len(sections) if sections else 0}")
     if not sections:
         return []
     if isinstance(sections[0], type("")):
@@ -542,7 +543,7 @@ def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
             pos = ""
         if tnum < 8:
             pos = ""
-        # Ensure that the length of the merged chunk does not exceed chunk_token_num  
+        # Ensure that the length of the merged chunk does not exceed chunk_token_num
         if tk_nums[-1] > chunk_token_num:
 
             if t.find(pos) < 0:
@@ -558,6 +559,7 @@ def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
     for sec, pos in sections:
         add_chunk(sec, pos)
 
+    print(f"🚀 naive_merge 完成，生成了 {len(cks)} 个分块")
     return cks
 
 
@@ -595,6 +597,8 @@ def concat_img(img1, img2):
 
 
 def naive_merge_docx(sections, chunk_token_num=128, delimiter="\n。；！？"):
+    import logging
+    logging.info(f"naive_merge_docx 被调用，chunk_token_num={chunk_token_num}, sections数量={len(sections) if sections else 0}")
     if not sections:
         return [], []
 
@@ -623,6 +627,7 @@ def naive_merge_docx(sections, chunk_token_num=128, delimiter="\n。；！？"):
     for sec, image in sections:
         add_chunk(sec, image, '')
 
+    logging.info(f"naive_merge_docx 完成，生成了 {len(cks)} 个分块")
     return cks, images
 
 
