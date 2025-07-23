@@ -14,13 +14,13 @@ import logging
 from pathlib import Path
 from typing import List
 
-# 添加deeprag根目录到路径
+# 添加DeepRag根目录到路径
 current_dir = Path(__file__).parent.absolute()
-deeprag_root = current_dir.parent
-sys.path.insert(0, str(deeprag_root))
+DeepRag_root = current_dir.parent
+sys.path.insert(0, str(DeepRag_root))
 
 # 导入召回器
-from deeprag_pure_retriever import deepragPureRetriever, deepragRetrievalConfig
+from retriever import DeepRagPureRetriever, DeepRagRetrievalConfig
 
 # 导入向量化模型
 from rag.llm import EmbeddingModel
@@ -146,7 +146,7 @@ def setup_logging(verbose: bool = False):
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
-        description="DeepRAG召回工具 - 基于deeprag原有算法",
+        description="DeepRag召回工具 - 基于DeepRag原有算法",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -161,7 +161,7 @@ def parse_arguments():
 
   # 指定索引和参数
   python recall_cli.py "深度学习" \\
-    --indices deeprag_vectors my_docs \\
+    --indices DeepRag_vectors my_docs \\
     --top-k 20 --similarity 0.3
 
   # 输出到文件
@@ -180,8 +180,8 @@ def parse_arguments():
     parser.add_argument(
         '--indices', '-i',
         nargs='+',
-        default=['deeprag_vectors'],
-        help='ES索引名称列表 (默认: deeprag_vectors)'
+        default=['DeepRag_vectors'],
+        help='ES索引名称列表 (默认: DeepRag_vectors)'
     )
     
     # 召回参数
@@ -355,14 +355,14 @@ def main():
     # 健康检查
     if args.health:
         try:
-            config = deepragRetrievalConfig(
+            config = DeepRagRetrievalConfig(
                 index_names=args.indices,
                 es_config={
                     "hosts": "http://10.0.100.36:9201",
                     "timeout": 600
                 }
             )
-            retriever = deepragPureRetriever(config)
+            retriever = DeepRagPureRetriever(config)
             health_info = retriever.health_check()
             
             print("=== 健康检查 ===")
@@ -392,7 +392,7 @@ def main():
         sys.exit(1)
 
     # 创建召回器配置
-    config = deepragRetrievalConfig(
+    config = DeepRagRetrievalConfig(
         index_names=args.indices,
         page=args.page,
         page_size=args.top_k,
@@ -413,7 +413,7 @@ def main():
     
     try:
         # 创建召回器
-        retriever = deepragPureRetriever(config)
+        retriever = DeepRagPureRetriever(config)
 
         # 获取向量化模型
         embedding_model = create_embedding_model_from_args(args)
@@ -426,7 +426,7 @@ def main():
             print("ℹ️  未指定重排序模型，将使用默认重排序算法")
 
         # 执行召回
-        print("正在执行deeprag召回...")
+        print("正在执行DeepRag召回...")
         result = retriever.retrieval(
             question=args.question,
             embd_mdl=embedding_model,

@@ -223,143 +223,147 @@ class Dealer:
             keywords=keywords                              # 关键词列表
         )
 
-    @staticmethod
-    def trans2floats(txt):
-        """
-        将制表符分隔的字符串转换为浮点数列表
+    # @staticmethod
+    # def trans2floats(txt):
+    #     """
+    #     将制表符分隔的字符串转换为浮点数列表
+    #
+    #     Args:
+    #         txt: 制表符分隔的数字字符串
+    #
+    #     Returns:
+    #         list[float]: 浮点数列表
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     return [float(t) for t in txt.split("\t")]
 
-        Args:
-            txt: 制表符分隔的数字字符串
+    # def insert_citations(self, answer, chunks, chunk_v,
+    #                      embd_mdl, tkweight=0.1, vtweight=0.9):
+    #     """
+    #     在答案中插入引用标记
+    #
+    #     Args:
+    #         answer: 原始答案文本
+    #         chunks: 文档分块列表
+    #         chunk_v: 分块向量列表
+    #         embd_mdl: 嵌入模型
+    #         tkweight: 词汇相似度权重
+    #         vtweight: 向量相似度权重
+    #
+    #     Returns:
+    #         tuple: (带引用的答案, 引用的分块ID集合)
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     assert len(chunks) == len(chunk_v)  # 确保分块和向量数量一致
+    #     if not chunks:
+    #         return answer, set([])
 
-        Returns:
-            list[float]: 浮点数列表
-        """
-        return [float(t) for t in txt.split("\t")]
-
-    def insert_citations(self, answer, chunks, chunk_v,
-                         embd_mdl, tkweight=0.1, vtweight=0.9):
-        """
-        在答案中插入引用标记
-
-        Args:
-            answer: 原始答案文本
-            chunks: 文档分块列表
-            chunk_v: 分块向量列表
-            embd_mdl: 嵌入模型
-            tkweight: 词汇相似度权重
-            vtweight: 向量相似度权重
-
-        Returns:
-            tuple: (带引用的答案, 引用的分块ID集合)
-        """
-        assert len(chunks) == len(chunk_v)  # 确保分块和向量数量一致
-        if not chunks:
-            return answer, set([])
-
-        # 处理代码块，避免在代码块内部分割
-        pieces = re.split(r"(```)", answer)
-        if len(pieces) >= 3:
-            i = 0
-            pieces_ = []
-            while i < len(pieces):
-                if pieces[i] == "```":
-                    # 找到代码块的开始和结束
-                    st = i
-                    i += 1
-                    while i < len(pieces) and pieces[i] != "```":
-                        i += 1
-                    if i < len(pieces):
-                        i += 1
-                    pieces_.append("".join(pieces[st: i]) + "\n")
-                else:
-                    # 对非代码块部分按句子分割
-                    pieces_.extend(
-                        re.split(
-                            r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])",
-                            pieces[i]))
-                    i += 1
-            pieces = pieces_
-        else:
-            # 没有代码块，直接按句子分割
-            pieces = re.split(r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])", answer)
-        # 合并标点符号到前一个片段
-        for i in range(1, len(pieces)):
-            if re.match(r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])", pieces[i]):
-                pieces[i - 1] += pieces[i][0]
-                pieces[i] = pieces[i][1:]
-
-        # 过滤掉太短的片段
-        idx = []
-        pieces_ = []
-        for i, t in enumerate(pieces):
-            if len(t) < 5:  # 跳过太短的片段
-                continue
-            idx.append(i)
-            pieces_.append(t)
-
-        logging.debug("{} => {}".format(answer, pieces_))
-        if not pieces_:
-            return answer, set([])
-
-        # 对答案片段进行向量编码
-        ans_v, _ = embd_mdl.encode(pieces_)
-
-        # 确保向量维度一致
-        for i in range(len(chunk_v)):
-            if len(ans_v[0]) != len(chunk_v[i]):
-                chunk_v[i] = [0.0]*len(ans_v[0])
-                logging.warning("The dimension of query and chunk do not match: {} vs. {}".format(len(ans_v[0]), len(chunk_v[i])))
-
-        assert len(ans_v[0]) == len(chunk_v[0]), "The dimension of query and chunk do not match: {} vs. {}".format(
-            len(ans_v[0]), len(chunk_v[0]))
-
-        # 对分块内容进行分词
-        chunks_tks = [rag_tokenizer.tokenize(self.qryr.rmWWW(ck)).split()
-                      for ck in chunks]
-
-        # 寻找引用匹配，使用递减的阈值
-        cites = {}
-        thr = 0.63  # 初始相似度阈值
-        while thr > 0.3 and len(cites.keys()) == 0 and pieces_ and chunks_tks:
-            for i, _ in enumerate(pieces_):  # 遍历答案片段
-                # 计算混合相似度（词汇+向量）
-                sim, _, _ = self.qryr.hybrid_similarity(ans_v[i],
-                                                                chunk_v,
-                                                                rag_tokenizer.tokenize(
-                                                                    self.qryr.rmWWW(pieces_[i])).split(),
-                                                                chunks_tks,
-                                                                tkweight, vtweight)
-                mx = np.max(sim) * 0.99  # 最大相似度的99%作为阈值
-                logging.debug("{} SIM: {}".format(pieces_[i], mx))
-                if mx < thr:
-                    continue
-                # 找到相似度超过阈值的分块，最多4个
-                cites[idx[i]] = list(
-                    set([str(ii) for ii in range(len(chunk_v)) if sim[ii] > mx]))[:4]
-            thr *= 0.8  # 降低阈值重试
-
-        # 重新组装答案，插入引用标记
-        res = ""
-        seted = set([])  # 已使用的引用ID集合
-        for i, p in enumerate(pieces):
-            res += p
-            if i not in idx:  # 跳过被过滤的片段
-                continue
-            if i not in cites:  # 跳过没有引用的片段
-                continue
-
-            # 验证引用ID的有效性
-            for c in cites[i]:
-                assert int(c) < len(chunk_v)
-
-            # 添加引用标记，避免重复
-            for c in cites[i]:
-                if c in seted:
-                    continue
-                res += f" ##{c}$$"  # 引用标记格式
-                seted.add(c)
-
-        return res, seted
+    #     # 处理代码块，避免在代码块内部分割
+    #     pieces = re.split(r"(```)", answer)
+    #     if len(pieces) >= 3:
+    #         i = 0
+    #         pieces_ = []
+    #         while i < len(pieces):
+    #             if pieces[i] == "```":
+    #                 # 找到代码块的开始和结束
+    #                 st = i
+    #                 i += 1
+    #                 while i < len(pieces) and pieces[i] != "```":
+    #                     i += 1
+    #                 if i < len(pieces):
+    #                     i += 1
+    #                 pieces_.append("".join(pieces[st: i]) + "\n")
+    #             else:
+    #                 # 对非代码块部分按句子分割
+    #                 pieces_.extend(
+    #                     re.split(
+    #                         r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])",
+    #                         pieces[i]))
+    #                 i += 1
+    #         pieces = pieces_
+    #     else:
+    #         # 没有代码块，直接按句子分割
+    #         pieces = re.split(r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])", answer)
+    #     # 合并标点符号到前一个片段
+    #     for i in range(1, len(pieces)):
+    #         if re.match(r"([^\|][；。？!！\n]|[a-z][.?;!][ \n])", pieces[i]):
+    #             pieces[i - 1] += pieces[i][0]
+    #             pieces[i] = pieces[i][1:]
+    #
+    #     # 过滤掉太短的片段
+    #     idx = []
+    #     pieces_ = []
+    #     for i, t in enumerate(pieces):
+    #         if len(t) < 5:  # 跳过太短的片段
+    #             continue
+    #         idx.append(i)
+    #         pieces_.append(t)
+    #
+    #     logging.debug("{} => {}".format(answer, pieces_))
+    #     if not pieces_:
+    #         return answer, set([])
+    #
+    #     # 对答案片段进行向量编码
+    #     ans_v, _ = embd_mdl.encode(pieces_)
+    #
+    #     # 确保向量维度一致
+    #     for i in range(len(chunk_v)):
+    #         if len(ans_v[0]) != len(chunk_v[i]):
+    #             chunk_v[i] = [0.0]*len(ans_v[0])
+    #             logging.warning("The dimension of query and chunk do not match: {} vs. {}".format(len(ans_v[0]), len(chunk_v[i])))
+    #
+    #     assert len(ans_v[0]) == len(chunk_v[0]), "The dimension of query and chunk do not match: {} vs. {}".format(
+    #         len(ans_v[0]), len(chunk_v[0]))
+    #
+    #     # 对分块内容进行分词
+    #     chunks_tks = [rag_tokenizer.tokenize(self.qryr.rmWWW(ck)).split()
+    #                   for ck in chunks]
+    #
+    #     # 寻找引用匹配，使用递减的阈值
+    #     cites = {}
+    #     thr = 0.63  # 初始相似度阈值
+    #     while thr > 0.3 and len(cites.keys()) == 0 and pieces_ and chunks_tks:
+    #         for i, _ in enumerate(pieces_):  # 遍历答案片段
+    #             # 计算混合相似度（词汇+向量）
+    #             sim, _, _ = self.qryr.hybrid_similarity(ans_v[i],
+    #                                                             chunk_v,
+    #                                                             rag_tokenizer.tokenize(
+    #                                                                 self.qryr.rmWWW(pieces_[i])).split(),
+    #                                                             chunks_tks,
+    #                                                             tkweight, vtweight)
+    #             mx = np.max(sim) * 0.99  # 最大相似度的99%作为阈值
+    #             logging.debug("{} SIM: {}".format(pieces_[i], mx))
+    #             if mx < thr:
+    #                 continue
+    #             # 找到相似度超过阈值的分块，最多4个
+    #             cites[idx[i]] = list(
+    #                 set([str(ii) for ii in range(len(chunk_v)) if sim[ii] > mx]))[:4]
+    #         thr *= 0.8  # 降低阈值重试
+    #
+    #     # 重新组装答案，插入引用标记
+    #     res = ""
+    #     seted = set([])  # 已使用的引用ID集合
+    #     for i, p in enumerate(pieces):
+    #         res += p
+    #         if i not in idx:  # 跳过被过滤的片段
+    #             continue
+    #         if i not in cites:  # 跳过没有引用的片段
+    #             continue
+    #
+    #         # 验证引用ID的有效性
+    #         for c in cites[i]:
+    #             assert int(c) < len(chunk_v)
+    #
+    #         # 添加引用标记，避免重复
+    #         for c in cites[i]:
+    #             if c in seted:
+    #                 continue
+    #             res += f" ##{c}$$"  # 引用标记格式
+    #             seted.add(c)
+    #
+    #     return res, seted
 
     def _rank_feature_scores(self, query_rfea, search_res):
         """
@@ -492,11 +496,16 @@ class Dealer:
 
         return tkweight * (np.array(tksim)+rank_fea) + vtweight * vtsim, tksim, vtsim
 
-    def hybrid_similarity(self, ans_embd, ins_embd, ans, inst):
-        return self.qryr.hybrid_similarity(ans_embd,
-                                           ins_embd,
-                                           rag_tokenizer.tokenize(ans).split(),
-                                           rag_tokenizer.tokenize(inst).split())
+    # def hybrid_similarity(self, ans_embd, ins_embd, ans, inst):
+    #     """
+    #     计算混合相似度的简化接口
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     return self.qryr.hybrid_similarity(ans_embd,
+    #                                        ins_embd,
+    #                                        rag_tokenizer.tokenize(ans).split(),
+    #                                        rag_tokenizer.tokenize(inst).split())
 
     def retrieval(self, question, embd_mdl, tenant_ids, kb_ids, page, page_size, similarity_threshold=0.2,
                   vector_similarity_weight=0.3, top=1024, doc_ids=None, aggs=True,
@@ -613,123 +622,141 @@ class Dealer:
 
         return ranks
 
-    def sql_retrieval(self, sql, fetch_size=128, format="json"):
-        tbl = self.dataStore.sql(sql, fetch_size, format)
-        return tbl
+    # def sql_retrieval(self, sql, fetch_size=128, format="json"):
+    #     """
+    #     SQL查询检索
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     tbl = self.dataStore.sql(sql, fetch_size, format)
+    #     return tbl
 
-    def chunk_list(self, doc_id: str, tenant_id: str,
-                   kb_ids: list[str], max_count=1024,
-                   offset=0,
-                   fields=["docnm_kwd", "content_with_weight", "img_id"]):
-        condition = {"doc_id": doc_id}
-        res = []
-        bs = 128
-        for p in range(offset, max_count, bs):
-            es_res = self.dataStore.search(fields, [], condition, [], OrderByExpr(), p, bs, index_name(tenant_id),
-                                           kb_ids)
-            dict_chunks = self.dataStore.getFields(es_res, fields)
-            for id, doc in dict_chunks.items():
-                doc["id"] = id
-            if dict_chunks:
-                res.extend(dict_chunks.values())
-            if len(dict_chunks.values()) < bs:
-                break
-        return res
+    # def chunk_list(self, doc_id: str, tenant_id: str,
+    #                kb_ids: list[str], max_count=1024,
+    #                offset=0,
+    #                fields=["docnm_kwd", "content_with_weight", "img_id"]):
+    #     """
+    #     获取分块列表
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     condition = {"doc_id": doc_id}
+    #     res = []
+    #     bs = 128
+    #     for p in range(offset, max_count, bs):
+    #         es_res = self.dataStore.search(fields, [], condition, [], OrderByExpr(), p, bs, index_name(tenant_id),
+    #                                        kb_ids)
+    #         dict_chunks = self.dataStore.getFields(es_res, fields)
+    #         for id, doc in dict_chunks.items():
+    #             doc["id"] = id
+    #         if dict_chunks:
+    #             res.extend(dict_chunks.values())
+    #         if len(dict_chunks.values()) < bs:
+    #             break
+    #     return res
 
-    def all_tags(self, tenant_id: str, kb_ids: list[str], S=1000):
-        """
-        获取所有标签
+    # def all_tags(self, tenant_id: str, kb_ids: list[str], S=1000):
+    #     """
+    #     获取所有标签
+    #
+    #     Args:
+    #         tenant_id: 租户ID
+    #         kb_ids: 知识库ID列表
+    #         S: 平滑参数（保留用于接口兼容性，当前未使用）
+    #
+    #     Returns:
+    #         list: 标签聚合结果
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     _ = S  # 标记参数已知但未使用
+    #     if not self.dataStore.indexExist(index_name(tenant_id), kb_ids[0]):
+    #         return []
+    #     res = self.dataStore.search([], [], {}, [], OrderByExpr(), 0, 0, index_name(tenant_id), kb_ids, ["tag_kwd"])
+    #     return self.dataStore.getAggregation(res, "tag_kwd")
 
-        Args:
-            tenant_id: 租户ID
-            kb_ids: 知识库ID列表
-            S: 平滑参数（保留用于接口兼容性，当前未使用）
+    # def all_tags_in_portion(self, tenant_id: str, kb_ids: list[str], S=1000):
+    #     """
+    #     获取标签的比例分布
+    #
+    #     Args:
+    #         tenant_id: 租户ID
+    #         kb_ids: 知识库ID列表
+    #         S: 平滑参数
+    #
+    #     Returns:
+    #         dict: 标签及其比例的字典
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     res = self.dataStore.search([], [], {}, [], OrderByExpr(), 0, 0, index_name(tenant_id), kb_ids, ["tag_kwd"])
+    #     res = self.dataStore.getAggregation(res, "tag_kwd")
+    #     total = np.sum([c for _, c in res])  # 计算总数
+    #     return {t: (c + 1) / (total + S) for t, c in res}  # 返回平滑后的比例
 
-        Returns:
-            list: 标签聚合结果
-        """
-        _ = S  # 标记参数已知但未使用
-        if not self.dataStore.indexExist(index_name(tenant_id), kb_ids[0]):
-            return []
-        res = self.dataStore.search([], [], {}, [], OrderByExpr(), 0, 0, index_name(tenant_id), kb_ids, ["tag_kwd"])
-        return self.dataStore.getAggregation(res, "tag_kwd")
+    # def tag_content(self, tenant_id: str, kb_ids: list[str], doc, all_tags, topn_tags=3, keywords_topn=30, S=1000):
+    #     """
+    #     为文档内容打标签
+    #
+    #     Args:
+    #         tenant_id: 租户ID
+    #         kb_ids: 知识库ID列表
+    #         doc: 文档对象
+    #         all_tags: 所有标签的分布
+    #         topn_tags: 返回的top-N标签数量
+    #         keywords_topn: 关键词top-N数量
+    #         S: 平滑参数
+    #
+    #     Returns:
+    #         bool: 是否成功打标签
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     idx_nm = index_name(tenant_id)
+    #     # 构建段落匹配表达式
+    #     match_txt = self.qryr.paragraph(doc["title_tks"] + " " + doc["content_ltks"], doc.get("important_kwd", []), keywords_topn)
+    #     res = self.dataStore.search([], [], {}, [match_txt], OrderByExpr(), 0, 0, idx_nm, kb_ids, ["tag_kwd"])
+    #     aggs = self.dataStore.getAggregation(res, "tag_kwd")
+    #     if not aggs:
+    #         return False
+    #
+    #     cnt = np.sum([c for _, c in aggs])  # 计算总数
+    #     # 计算标签特征分数：TF-IDF 风格的计算
+    #     tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
+    #                      key=lambda x: x[1] * -1)[:topn_tags]
+    #     doc[TAG_FLD] = {a: c for a, c in tag_fea if c > 0}  # 保存标签特征
+    #     return True
 
-    def all_tags_in_portion(self, tenant_id: str, kb_ids: list[str], S=1000):
-        """
-        获取标签的比例分布
-
-        Args:
-            tenant_id: 租户ID
-            kb_ids: 知识库ID列表
-            S: 平滑参数
-
-        Returns:
-            dict: 标签及其比例的字典
-        """
-        res = self.dataStore.search([], [], {}, [], OrderByExpr(), 0, 0, index_name(tenant_id), kb_ids, ["tag_kwd"])
-        res = self.dataStore.getAggregation(res, "tag_kwd")
-        total = np.sum([c for _, c in res])  # 计算总数
-        return {t: (c + 1) / (total + S) for t, c in res}  # 返回平滑后的比例
-
-    def tag_content(self, tenant_id: str, kb_ids: list[str], doc, all_tags, topn_tags=3, keywords_topn=30, S=1000):
-        """
-        为文档内容打标签
-
-        Args:
-            tenant_id: 租户ID
-            kb_ids: 知识库ID列表
-            doc: 文档对象
-            all_tags: 所有标签的分布
-            topn_tags: 返回的top-N标签数量
-            keywords_topn: 关键词top-N数量
-            S: 平滑参数
-
-        Returns:
-            bool: 是否成功打标签
-        """
-        idx_nm = index_name(tenant_id)
-        # 构建段落匹配表达式
-        match_txt = self.qryr.paragraph(doc["title_tks"] + " " + doc["content_ltks"], doc.get("important_kwd", []), keywords_topn)
-        res = self.dataStore.search([], [], {}, [match_txt], OrderByExpr(), 0, 0, idx_nm, kb_ids, ["tag_kwd"])
-        aggs = self.dataStore.getAggregation(res, "tag_kwd")
-        if not aggs:
-            return False
-
-        cnt = np.sum([c for _, c in aggs])  # 计算总数
-        # 计算标签特征分数：TF-IDF 风格的计算
-        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
-                         key=lambda x: x[1] * -1)[:topn_tags]
-        doc[TAG_FLD] = {a: c for a, c in tag_fea if c > 0}  # 保存标签特征
-        return True
-
-    def tag_query(self, question: str, tenant_ids: str | list[str], kb_ids: list[str], all_tags, topn_tags=3, S=1000):
-        """
-        为查询问题提取相关标签
-
-        Args:
-            question: 查询问题
-            tenant_ids: 租户ID（单个或列表）
-            kb_ids: 知识库ID列表
-            all_tags: 所有标签的分布
-            topn_tags: 返回的top-N标签数量
-            S: 平滑参数
-
-        Returns:
-            dict: 标签及其权重的字典
-        """
-        if isinstance(tenant_ids, str):
-            idx_nms = index_name(tenant_ids)
-        else:
-            idx_nms = [index_name(tid) for tid in tenant_ids]
-
-        match_txt, _ = self.qryr.question(question, min_match=0.0)  # 生成问题匹配表达式
-        res = self.dataStore.search([], [], {}, [match_txt], OrderByExpr(), 0, 0, idx_nms, kb_ids, ["tag_kwd"])
-        aggs = self.dataStore.getAggregation(res, "tag_kwd")
-        if not aggs:
-            return {}
-
-        cnt = np.sum([c for _, c in aggs])  # 计算总数
-        # 计算标签特征分数：TF-IDF 风格的计算
-        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
-                         key=lambda x: x[1] * -1)[:topn_tags]
-        return {a: max(1, c) for a, c in tag_fea}  # 返回标签权重，最小值为1
+    # def tag_query(self, question: str, tenant_ids: str | list[str], kb_ids: list[str], all_tags, topn_tags=3, S=1000):
+    #     """
+    #     为查询问题提取相关标签
+    #
+    #     Args:
+    #         question: 查询问题
+    #         tenant_ids: 租户ID（单个或列表）
+    #         kb_ids: 知识库ID列表
+    #         all_tags: 所有标签的分布
+    #         topn_tags: 返回的top-N标签数量
+    #         S: 平滑参数
+    #
+    #     Returns:
+    #         dict: 标签及其权重的字典
+    #
+    #     注意：此方法当前未被使用，已注释
+    #     """
+    #     if isinstance(tenant_ids, str):
+    #         idx_nms = index_name(tenant_ids)
+    #     else:
+    #         idx_nms = [index_name(tid) for tid in tenant_ids]
+    #
+    #     match_txt, _ = self.qryr.question(question, min_match=0.0)  # 生成问题匹配表达式
+    #     res = self.dataStore.search([], [], {}, [match_txt], OrderByExpr(), 0, 0, idx_nms, kb_ids, ["tag_kwd"])
+    #     aggs = self.dataStore.getAggregation(res, "tag_kwd")
+    #     if not aggs:
+    #         return {}
+    #
+    #     cnt = np.sum([c for _, c in aggs])  # 计算总数
+    #     # 计算标签特征分数：TF-IDF 风格的计算
+    #     tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
+    #                      key=lambda x: x[1] * -1)[:topn_tags]
+    #     return {a: max(1, c) for a, c in tag_fea}  # 返回标签权重，最小值为1

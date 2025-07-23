@@ -21,51 +21,51 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
-# 添加deeprag根目录到路径
+# 添加DeepRag根目录到路径
 current_dir = Path(__file__).parent.absolute()
-deeprag_root = current_dir.parent
-sys.path.insert(0, str(deeprag_root))
+DeepRag_root = current_dir.parent
+sys.path.insert(0, str(DeepRag_root))
 
-# 导入deeprag核心组件
+# 导入DeepRag核心组件
 from rag.nlp import rag_tokenizer, query
 from rag.utils import rmSpace
 from rag.utils.doc_store_conn import MatchDenseExpr, MatchTextExpr, FusionExpr, OrderByExpr
 import numpy as np
 
 # 导入我们的ES连接和适配器
-from embed_store.es_connection import IndependentESConnection
+from embed_store.es_connection import SimpleESConnection
 from es_adapter import ESAdapter
 
 
 @dataclass
-class deepragRetrievalConfig:
-    """deeprag召回配置"""
+class DeepRagRetrievalConfig:
+    """DeepRag召回配置"""
     index_names: List[str]                    # ES索引名称列表
     page: int = 1                            # 页码
     page_size: int = 10                      # 每页大小
-    similarity_threshold: float = 0.1        # 相似度阈值（deeprag默认0.1）
-    vector_similarity_weight: float = 0.95   # 向量相似度权重（deeprag默认0.95）
+    similarity_threshold: float = 0.1        # 相似度阈值（DeepRag默认0.1）
+    vector_similarity_weight: float = 0.95   # 向量相似度权重（DeepRag默认0.95）
     top_k: int = 1024                        # 向量召回top-k
     highlight: bool = True                   # 是否高亮
     doc_ids: List[str] = None               # 指定文档ID列表
     es_config: Dict[str, Any] = None         # ES配置
-    rerank_page_limit: int = 3               # 重排序页面限制（deeprag默认3）
+    rerank_page_limit: int = 3               # 重排序页面限制（DeepRag默认3）
 
 
-class deepragPureRetriever:
+class DeepRagPureRetriever:
     """
-    基于deeprag原有算法的纯净召回器
+    基于DeepRag原有算法的纯净召回器
     
-    完全复用deeprag的核心算法逻辑：
+    完全复用DeepRag的核心算法逻辑：
     - 使用MatchExpr体系进行搜索
     - 实现真正的FusionExpr混合搜索
     - 包含完整的重排序算法
     - 支持降级策略
     """
     
-    def __init__(self, config: deepragRetrievalConfig):
+    def __init__(self, config: DeepRagRetrievalConfig):
         """
-        初始化deeprag纯净召回器
+        初始化DeepRag纯净召回器
         
         Args:
             config: 召回配置
@@ -78,20 +78,20 @@ class deepragPureRetriever:
             "timeout": 600
         }
         
-        # 创建独立的ES连接
-        independent_es = IndependentESConnection(es_config)
+        # 创建简单的ES连接
+        simple_es = SimpleESConnection(es_config.get("hosts", "http://localhost:9200"))
 
         # 创建ES适配器
-        self.es_conn = ESAdapter(independent_es)
+        self.es_conn = ESAdapter(simple_es)
 
-        # 创建deeprag的查询器
+        # 创建DeepRag的查询器
         self.qryr = query.FulltextQueryer()
         
-        logging.info(f"deeprag纯净召回器已初始化，索引: {config.index_names}")
+        logging.info(f"DeepRag纯净召回器已初始化，索引: {config.index_names}")
     
     def get_vector(self, txt: str, emb_mdl, topk: int = 10, similarity: float = 0.1):
         """
-        创建向量搜索表达式（完全复用deeprag的逻辑）
+        创建向量搜索表达式（完全复用DeepRag的逻辑）
         
         Args:
             txt: 查询文本
@@ -106,7 +106,7 @@ class deepragPureRetriever:
         shape = np.array(qv).shape
         if len(shape) > 1:
             raise Exception(
-                f"deepragPureRetriever.get_vector returned array's shape {shape} doesn't match expectation(exact one dimension).")
+                f"DeepRagPureRetriever.get_vector returned array's shape {shape} doesn't match expectation(exact one dimension).")
         
         embedding_data = [float(v) for v in qv]
         vector_column_name = f"q_{len(embedding_data)}_vec"
@@ -122,7 +122,7 @@ class deepragPureRetriever:
     
     def search(self, req: Dict[str, Any], emb_mdl=None, highlight: bool = False):
         """
-        搜索方法（完全复用deeprag的search逻辑）
+        搜索方法（完全复用DeepRag的search逻辑）
         
         Args:
             req: 搜索请求
@@ -166,7 +166,7 @@ class deepragPureRetriever:
         offset = (page - 1) * page_size
         limit = page_size
         
-        # 构建MatchExpr列表（完全按照deeprag的逻辑）
+        # 构建MatchExpr列表（完全按照DeepRag的逻辑）
         matchExprs = []
         
         # 1. 文本搜索
@@ -182,7 +182,7 @@ class deepragPureRetriever:
             q_vec = matchDense.embedding_data
             src.append(f"q_{len(q_vec)}_vec")
             
-            # 创建融合表达式（使用deeprag的权重配置）
+            # 创建融合表达式（使用DeepRag的权重配置）
             text_weight = 1.0 - self.config.vector_similarity_weight
             vector_weight = self.config.vector_similarity_weight
             fusionExpr = FusionExpr(
@@ -239,7 +239,7 @@ class deepragPureRetriever:
                question: str, keywords: List[str], query_vector: List[float],
                text_weight: float = 0.05, vector_weight: float = 0.95):
         """
-        重排序算法（完全基于deeprag的rerank逻辑）
+        重排序算法（完全基于DeepRag的rerank逻辑）
 
         Args:
             chunk_ids: 分块ID列表
@@ -258,7 +258,7 @@ class deepragPureRetriever:
 
         logging.debug(f"开始重排序，分块数量: {len(chunk_ids)}")
 
-        # 1. 提取向量数据（完全按照deeprag的逻辑）
+        # 1. 提取向量数据（完全按照DeepRag的逻辑）
         ins_embd = []
         ins_tw = []
 
@@ -282,7 +282,7 @@ class deepragPureRetriever:
 
             ins_embd.append(chunk_vector)
 
-            # 构建token权重（完全按照deeprag的逻辑）
+            # 构建token权重（完全按照DeepRag的逻辑）
             content_ltks = chunk_data.get("content_ltks", "").split()
             title_tks = [t for t in chunk_data.get("title_tks", "").split() if t]
             question_tks = [t for t in chunk_data.get("question_tks", "").split() if t]
@@ -291,11 +291,11 @@ class deepragPureRetriever:
             if isinstance(important_kwd, str):
                 important_kwd = [important_kwd]
 
-            # deeprag的权重配置：content_ltks + title_tks * 2 + important_kwd * 5 + question_tks * 6
+            # DeepRag的权重配置：content_ltks + title_tks * 2 + important_kwd * 5 + question_tks * 6
             tks = content_ltks + title_tks * 2 + important_kwd * 5 + question_tks * 6
             ins_tw.append(tks)
 
-        # 2. 使用deeprag的hybrid_similarity计算相似度（完全按照原有格式）
+        # 2. 使用DeepRag的hybrid_similarity计算相似度（完全按照原有格式）
         sim, tksim, vtsim = self.qryr.hybrid_similarity(
             query_vector,    # avec: 查询向量
             ins_embd,        # bvecs: 文档向量列表
@@ -314,7 +314,7 @@ class deepragPureRetriever:
                  similarity_threshold: float = 0.1, vector_similarity_weight: float = 0.95,
                  top: int = 1024, doc_ids: List[str] = None, rerank_mdl=None, highlight: bool = True):
         """
-        召回方法（完全复用deeprag的retrieval逻辑）
+        召回方法（完全复用DeepRag的retrieval逻辑）
 
         Args:
             question: 查询问题
@@ -334,7 +334,7 @@ class deepragPureRetriever:
         if not question:
             return {"total": 0, "chunks": [], "doc_aggs": {}}
 
-        logging.info(f"开始deeprag召回，问题: {question}")
+        logging.info(f"开始DeepRag召回，问题: {question}")
 
         try:
             # 更新配置
@@ -490,19 +490,19 @@ class deepragPureRetriever:
                 "query_vector": query_vector
             }
 
-            logging.info(f"deeprag召回完成，总数: {sres.total}, 返回: {len(chunks)} 个分块")
+            logging.info(f"DeepRag召回完成，总数: {sres.total}, 返回: {len(chunks)} 个分块")
             return result
 
         except Exception as e:
             import traceback
-            logging.error(f"deeprag召回失败: {e}")
+            logging.error(f"DeepRag召回失败: {e}")
             logging.error(f"错误详情: {traceback.format_exc()}")
             return {"total": 0, "chunks": [], "doc_aggs": {}, "error": str(e)}
 
     def rerank_by_model(self, rerank_mdl, chunk_ids: List[str], fields_data: Dict[str, Dict],
                        question: str, query_vector: List[float], text_weight: float, vector_weight: float):
         """
-        使用重排序模型进行重排序（完全基于deeprag的逻辑）
+        使用重排序模型进行重排序（完全基于DeepRag的逻辑）
 
         Args:
             rerank_mdl: 重排序模型
@@ -522,12 +522,12 @@ class deepragPureRetriever:
         logging.debug(f"使用重排序模型进行重排序，分块数量: {len(chunk_ids)}")
 
         try:
-            # 1. 准备token数据（完全按照deeprag第318-324行的逻辑）
+            # 1. 准备token数据（完全按照DeepRag第318-324行的逻辑）
             ins_tw = []
             for chunk_id in chunk_ids:
                 chunk_data = fields_data.get(chunk_id, {})
 
-                # 按照deeprag的逻辑处理token
+                # 按照DeepRag的逻辑处理token
                 content_ltks = chunk_data.get("content_ltks", "").split()
                 title_tks = [t for t in chunk_data.get("title_tks", "").split() if t]
                 important_kwd = chunk_data.get("important_kwd", [])
@@ -536,20 +536,20 @@ class deepragPureRetriever:
                 if isinstance(important_kwd, str):
                     important_kwd = [important_kwd]
 
-                # 组合token（按照deeprag第323行）
+                # 组合token（按照DeepRag第323行）
                 tks = content_ltks + title_tks + important_kwd
                 ins_tw.append(tks)
 
-            # 2. 计算token相似度（按照deeprag第326行）
+            # 2. 计算token相似度（按照DeepRag第326行）
             _, keywords = self.qryr.question(question)
             tksim = self.qryr.token_similarity(keywords, ins_tw)
 
-            # 3. 使用重排序模型计算相似度（完全按照deeprag第327行）
+            # 3. 使用重排序模型计算相似度（完全按照DeepRag第327行）
             from rag.utils import rmSpace
             docs_for_rerank = [rmSpace(" ".join(tks)) for tks in ins_tw]
             vtsim, _ = rerank_mdl.similarity(question, docs_for_rerank)
 
-            # 4. 按照deeprag第331行的公式计算最终相似度
+            # 4. 按照DeepRag第331行的公式计算最终相似度
             sim = text_weight * np.array(tksim) + vector_weight * np.array(vtsim)
 
             logging.debug(f"重排序模型计算完成，相似度范围: {np.min(sim):.4f} - {np.max(sim):.4f}")
@@ -606,5 +606,5 @@ class deepragPureRetriever:
 
 
 # 为了向后兼容，创建别名
-PureRetriever = deepragPureRetriever
-SimpleRetrievalConfig = deepragRetrievalConfig
+PureRetriever = DeepRagPureRetriever
+SimpleRetrievalConfig = DeepRagRetrievalConfig

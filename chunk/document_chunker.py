@@ -73,7 +73,6 @@ class DocumentChunker:
         ParserType.ONE: one,        # 单页文档解析器
         ParserType.EMAIL: email,    # 邮件解析器
         ParserType.KG: naive,       # 知识图谱解析器
-        ParserType.TAG: tag         # 标签解析器
     }
     
     def __init__(self,
@@ -416,8 +415,7 @@ class DocumentChunker:
             "table": "表格专用解析器，专注于表格内容提取",
             "one": "单页文档解析器，适用于简单的单页文档",
             "email": "邮件文档解析器，处理邮件格式",
-            "kg": "知识图谱解析器，用于构建知识图谱",
-            "tag": "标签解析器，基于标签的文档处理"
+            "kg": "知识图谱解析器，用于构建知识图谱"
         }
 
         if parser_type not in cls.PARSER_FACTORY:
