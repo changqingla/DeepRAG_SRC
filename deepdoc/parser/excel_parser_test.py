@@ -205,8 +205,8 @@ class DeepRAGExcelParser:
         将Excel文件转换为结构化文本格式
 
         该方法是类的主要调用接口，将Excel文件的内容转换为易于阅读的
-        结构化文本格式。每行数据会被格式化为"列名：值"的形式，
-        多个字段用分号分隔。
+        结构化文本格式。第一列作为前缀，后续有值的列按"列名：值"格式拼接，
+        多个字段用空格分隔。
 
         Args:
             fnm: 文件名或字节数据
@@ -232,21 +232,39 @@ class DeepRAGExcelParser:
             # 处理数据行（从第二行开始）
             for r in list(rows[1:]):
                 fields = []
+
+                # 处理每一列的数据
                 for i, c in enumerate(r):
-                    if not c.value:
+                    if not c.value:  # 跳过空单元格
                         continue
-                    # 构建"列名：值"格式的字段
-                    t = str(ti[i].value) if i < len(ti) else ""
-                    t += ("：" if t else "") + str(c.value)
-                    fields.append(t)
 
-                # 用分号连接所有字段
-                line = "; ".join(fields)
+                    # 获取列标题，过滤掉None值
+                    header = str(ti[i].value) if i < len(ti) and ti[i].value is not None else ""
+                    cell_value = str(c.value)
 
-                # 如果工作表名不是默认的"Sheet"格式，添加工作表名标识
-                if sheetname.lower().find("sheet") < 0:
-                    line += " ——" + sheetname
-                res.append(line)
+                    # 构建字段
+                    if header and header.lower() != "none":
+                        # 对于第一列，如果是重复的表头信息，只保留有用的部分
+                        if i == 0 and any(keyword in header for keyword in ["办事指南", "告知单", "服务事项"]):
+                            # 如果单元格值包含有用信息（不只是表头重复），则提取有用部分
+                            if "：" in cell_value:
+                                # 提取冒号后的内容
+                                useful_part = cell_value.split("：", 1)[1].strip()
+                                if useful_part:
+                                    fields.append(useful_part)
+                            elif cell_value != header:  # 如果不是表头重复，直接使用
+                                fields.append(cell_value)
+                        else:
+                            # 正常的"列名：值"格式
+                            fields.append(f"{header}：{cell_value}")
+                    elif not header:  # 如果没有列名，直接使用值
+                        fields.append(cell_value)
+
+                # 构建最终的行文本
+                if fields:  # 只有当有内容时才添加
+                    line = "  ".join(fields)  # 用两个空格分隔
+                    res.append(line)
+
         return res
 
     @staticmethod

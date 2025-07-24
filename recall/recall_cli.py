@@ -180,8 +180,8 @@ def parse_arguments():
     parser.add_argument(
         '--indices', '-i',
         nargs='+',
-        default=['DeepRag_vectors'],
-        help='ES索引名称列表 (默认: DeepRag_vectors)'
+        default=['test_documents'],
+        help='ES索引名称列表 (默认: test_documents)'
     )
     
     # 召回参数
